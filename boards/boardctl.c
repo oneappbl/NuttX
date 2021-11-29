@@ -297,11 +297,54 @@ static inline int boardctl_pmctrl(FAR struct boardioc_pm_ctrl_s *ctrl)
  *   with the errno variable to indicate the nature of the failure.
  *
  ****************************************************************************/
+char *
+bdctl2str(int cmd)
+{
+    switch(cmd) {
+      case BOARDIOC_INIT:
+        return("BOARDIOC_INIT");
+      case BOARDIOC_FINALINIT:
+        return("BOARDIOC_FINALINIT");
+      case BOARDIOC_POWEROFF:
+        return("BOARDIOC_POWEROFF");
+      case BOARDIOC_RESET:
+        return("BOARDIOC_RESET");
+      case BOARDIOC_PM_CONTROL:
+        return("BOARDIOC_PM_CONTROL");
+      case BOARDIOC_UNIQUEID:
+        return("BOARDIOC_UNIQUEID");
+      case BOARDIOC_MKRD:
+        return("BOARDIOC_MKRD");
+      case BOARDIOC_ROMDISK:
+        return("BOARDIOC_ROMDISK");
+      case BOARDIOC_APP_SYMTAB:
+        return("BOARDIOC_APP_SYMTAB");
+      case BOARDIOC_OS_SYMTAB:
+        return("BOARDIOC_OS_SYMTAB");
+      case BOARDIOC_BUILTINS:
+        return("BOARDIOC_BUILTINS");
+      case BOARDIOC_USBDEV_CONTROL:
+        return("BOARDIOC_USBDEV_CONTROL");
+      case BOARDIOC_NX_START:
+        return("BOARDIOC_NX_START");
+      case BOARDIOC_VNC_START:
+        return("BOARDIOC_VNC_START");
+      case BOARDIOC_NXTERM:
+        return("BOARDIOC_NXTERM");
+      case BOARDIOC_NXTERM_IOCTL:
+        return("BOARDIOC_NXTERM_IOCTL");
+      case BOARDIOC_TESTSET:
+        return("BOARDIOC_TESTSET");
+      default:
+        return("???");
+    }
+}
 
 int boardctl(unsigned int cmd, uintptr_t arg)
 {
   int ret;
 
+  syslog(LOG_INFO, "boardctl(%s 0x%x)\n",bdctl2str(cmd),arg);
   switch (cmd)
     {
       /* CMD:           BOARDIOC_INIT
