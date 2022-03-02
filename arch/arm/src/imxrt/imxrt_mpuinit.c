@@ -140,6 +140,14 @@ void imxrt_mpu_initialize(void)
                        MPU_RASR_AP_RORO    /* P:RO   U:RO        */
                                            /* Instruction access */);
 
+  mpu_configure_region(IMXRT_FLEX2CIPHER_BASE, 4 * 1024 * 1024,
+                       MPU_RASR_TEX_SO   | /* Ordered            */
+                       MPU_RASR_C        | /* Cacheable          */
+                       MPU_RASR_B        | /* Bufferable         */
+                                           /* Not Shareable      */
+                       MPU_RASR_AP_RWRW    /* P:RO   U:RO        */
+                                           /* Instruction access */);
+
   mpu_configure_region(0x00000000,  1024 * 1024 * 1024,
                        MPU_RASR_TEX_DEV  | /* Device             */
                                            /* Not Cacheable      */
