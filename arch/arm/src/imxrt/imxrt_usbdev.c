@@ -1,5 +1,5 @@
 /****************************************************************************
- * boards/arm/imxrt/imxrt1060-evk/src/imxrt_usbdev.c
+ * arch/arm/src/imxrt/imxrt_usbdev.c
  *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,27 +19,6 @@
  ****************************************************************************/
 
 /****************************************************************************
- * IMXRT USB Device Driver
- *
- *   Authors: Thomas Axelsson <thomas.axelsson@actia.se>
- *            Simon Åström <simon.astrom@actia.se>
- *
- * Part of the NuttX OS and based, mostly, on the LPC43xx USB driver:
- *
- *   Author: Gregory Nutt <gnutt@nuttx.org>
- *
- * Which, in turn, was based on the LPC31xx USB driver:
- *
- *   Authors: David Hewson
- *            Gregory Nutt <gnutt@nuttx.org>
- *
- * Which, in turn, was based on the LPC2148 USB driver:
- *
- *   Author: Gregory Nutt <gnutt@nuttx.org>
- *
- ****************************************************************************/
-
-/****************************************************************************
  * Included Files
  ****************************************************************************/
 
@@ -50,6 +29,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <errno.h>
 #include <debug.h>
 
@@ -76,6 +56,14 @@
  ****************************************************************************/
 
 /* Configuration ************************************************************/
+
+#if defined(CONFIG_ARMV7M_DCACHE)
+#  define cache_aligned_alloc(s) kmm_memalign(ARMV7M_DCACHE_LINESIZE,(s))
+#  define CACHE_ALIGNED_DATA     aligned_data(ARMV7M_DCACHE_LINESIZE)
+#else
+#  define cache_aligned_alloc kmm_malloc
+#  define CACHE_ALIGNED_DATA
+#endif
 
 #ifndef CONFIG_USBDEV_EP0_MAXSIZE
 #  define CONFIG_USBDEV_EP0_MAXSIZE 64
@@ -257,7 +245,7 @@ struct imxrt_dtd_s
 #define DTD_CONFIG_BUFFER_ERROR      (1 << 5)    /* Bit 6      : Status Buffer Error */
 #define DTD_CONFIG_TRANSACTION_ERROR (1 << 3)    /* Bit 3      : Status Transaction Error */
 
-/* This represents a queue head  - not these must be aligned to a 2048 byte
+/* This represents a queue head  - note these must be aligned to a 2048 byte
  * boundary
  */
 
@@ -304,9 +292,9 @@ struct imxrt_dqh_s
 #define IMXRT_EPOUTSET               (0x5555)       /* Even phy endpoint numbers are OUT EPs */
 #define IMXRT_EPINSET                (0xaaaa)       /* Odd endpoint numbers are IN EPs */
 #define IMXRT_EPCTRLSET              (0x0003)       /* EP0 IN/OUT are control endpoints */
-#define IMXRT_EPINTRSET              (0xfffc)       /* Interrupt endpoints */
-#define IMXRT_EPBULKSET              (0xfffc)       /* Bulk endpoints */
-#define IMXRT_EPISOCSET              (0xfffc)       /* Isochronous endpoints */
+#define IMXRT_EPINTRSET              (0x000c)       /* Interrupt endpoints */
+#define IMXRT_EPBULKSET              (0x0ff0)       /* Bulk endpoints */
+#define IMXRT_EPISOCSET              (0xf000)       /* Isochronous endpoints */
 
 /* Maximum packet sizes for endpoints */
 
@@ -378,7 +366,8 @@ struct imxrt_usbdev_s
   /* IMXRTXX-specific fields */
 
   uint8_t                 ep0state;      /* State of certain EP0 operations */
-  uint8_t                 ep0buf[64];    /* buffer for EP0 short transfers */
+                                         /* buffer for EP0 short transfers */
+  uint8_t                 ep0buf[64] CACHE_ALIGNED_DATA;
   uint8_t                 paddr;         /* Address assigned by SETADDRESS */
   uint8_t                 stalled:1;     /* 1: Protocol stalled */
   uint8_t                 selfpowered:1; /* 1: Device is self powered */
@@ -523,10 +512,10 @@ static int         imxrt_pullup(struct usbdev_s *dev, bool enable);
 static struct imxrt_usbdev_s g_usbdev;
 
 static struct imxrt_dqh_s g_qh[IMXRT_NPHYSENDPOINTS]
-                               __attribute__((aligned(2048)));
+                               aligned_data(2048);
 
 static struct imxrt_dtd_s g_td[IMXRT_NPHYSENDPOINTS]
-                               __attribute__((aligned(32)));
+                               aligned_data(32);
 
 static const struct usbdev_epops_s g_epops =
 {
@@ -1141,7 +1130,7 @@ static void imxrt_ep0configure(struct imxrt_usbdev_s *priv)
   g_qh[IMXRT_EP0_OUT].currdesc = DTD_NEXTDESC_INVALID;
   g_qh[IMXRT_EP0_IN].currdesc = DTD_NEXTDESC_INVALID;
 
-  up_flush_dcache((uintptr_t)g_qh,
+  up_clean_dcache((uintptr_t)g_qh,
                   (uintptr_t)g_qh + (sizeof(struct imxrt_dqh_s) * 2));
 
   /* Enable EP0 */
@@ -1226,8 +1215,8 @@ static void imxrt_usbreset(struct imxrt_usbdev_s *priv)
   memset ((void *) g_qh, 0, sizeof (g_qh));
   memset ((void *) g_td, 0, sizeof (g_td));
 
-  up_flush_dcache((uintptr_t)g_qh, (uintptr_t)g_qh + sizeof(g_qh));
-  up_flush_dcache((uintptr_t)g_td, (uintptr_t)g_td + sizeof(g_td));
+  up_clean_dcache((uintptr_t)g_qh, (uintptr_t)g_qh + sizeof(g_qh));
+  up_clean_dcache((uintptr_t)g_td, (uintptr_t)g_td + sizeof(g_td));
 
   /* Set USB address to 0 */
 
@@ -2152,7 +2141,7 @@ static int imxrt_epconfigure(FAR struct usbdev_ep_s *ep,
                     DQH_CAPABILITY_ZLT);
     }
 
-  up_flush_dcache((uintptr_t)dqh,
+  up_clean_dcache((uintptr_t)dqh,
                   (uintptr_t)dqh + sizeof(struct imxrt_dqh_s));
 
   /* Setup Endpoint Control Register */
@@ -2352,7 +2341,7 @@ static void *imxrt_epallocbuffer(FAR struct usbdev_ep_s *ep, uint16_t bytes)
 #ifdef CONFIG_USBDEV_DMAMEMORY
   return usbdev_dma_alloc(bytes);
 #else
-  return kmm_malloc(bytes);
+  return cache_aligned_alloc(bytes);
 #endif
 }
 #endif
